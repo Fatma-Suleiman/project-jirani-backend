@@ -15,7 +15,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.6.0",
-    "node-geocoder": "^3.31.0",
+    "node-geocoder": "^4.2.0",
     "whatwg-url": "^11.0.0"
   }
 }
