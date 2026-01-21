@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../controllers/authController');
-const { getProvidersByCategory } = require('../controllers/providers');
+const { getProvidersByCategory } = require('../controllers/providerController');
 const upload = require('../middlewares/uploadMiddleware');
 
 const {
@@ -11,7 +11,7 @@ const {
   updateProviderProfile,
   getMySummary,
   getMyRequests
-} = require('../controllers/providers');
+} = require('../controllers/providerController');
 
 const { updateRequestStatus } = require('../controllers/serviceRequestController');
 
