@@ -5,27 +5,112 @@ const NodeGeocoder = require('node-geocoder');
 
 // Multer setup
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads')),
-  filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`)
+  destination: (req, file, cb) =>
+    cb(null, path.join(__dirname, '../uploads')),
+  filename: (req, file, cb) =>
+    cb(null, `${Date.now()}${path.extname(file.originalname)}`)
 });
 exports.upload = multer({ storage });
 
-// Geocoder config
+// Geocoder
 const geocoder = NodeGeocoder({ provider: 'openstreetmap' });
 
-// Get provider profile
-exports.getMyProfile = async (req, res) => {
+
+exports.getMySummary = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { rows } = await db.query(
-      `SELECT id, name, category, phone_number, description, price, location, image,
-              rating, lat, lon, created_at
-       FROM service_providers
-       WHERE user_id = $1`,
+
+    const { rows: provRows } = await db.query(
+      'SELECT id FROM service_providers WHERE user_id = $1',
       [userId]
     );
 
-    if (!rows.length) return res.status(404).json({ message: 'Provider profile not found' });
+    if (!provRows.length) {
+      return res.status(404).json({ message: 'Provider profile not found' });
+    }
+
+    const providerId = provRows[0].id;
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        COUNT(sr.id) AS "totalRequests",
+        COUNT(CASE WHEN sr.status = 'completed' THEN 1 END) AS "completedRequests",
+        COALESCE(AVG(r.rating), 0) AS "averageRating",
+        COUNT(r.id) AS "totalReviews"
+      FROM service_requests sr
+      LEFT JOIN reviews r ON sr.id = r.request_id
+      WHERE sr.provider_id = $1
+      `,
+      [providerId]
+    );
+
+    const s = rows[0];
+    res.json({
+      totalRequests: Number(s.totalRequests),
+      completedRequests: Number(s.completedRequests),
+      averageRating: Number(s.averageRating).toFixed(1),
+      totalReviews: Number(s.totalReviews)
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not fetch provider summary' });
+  }
+};
+
+
+exports.getMyRequests = async (req, res) => {
+  try {
+    const { rows: provRows } = await db.query(
+      'SELECT id FROM service_providers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (!provRows.length) {
+      return res.status(404).json({ message: 'Provider profile not found' });
+    }
+
+    const providerId = provRows[0].id;
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        sr.id,
+        sr.details,
+        sr.status,
+        sr.created_at,
+        u.username AS customer_name,
+        u.phone_number AS customer_phone
+      FROM service_requests sr
+      JOIN users u ON sr.user_id = u.id
+      WHERE sr.provider_id = $1
+      ORDER BY sr.created_at DESC
+      `,
+      [providerId]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Could not fetch service requests' });
+  }
+};
+
+exports.getMyProfile = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT id, name, category, phone_number, description, price,
+             location, image, rating, lat, lon, created_at
+      FROM service_providers
+      WHERE user_id = $1
+      `,
+      [req.user.id]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Provider profile not found' });
+    }
 
     const profile = rows[0];
     if (profile.image) {
@@ -34,16 +119,23 @@ exports.getMyProfile = async (req, res) => {
 
     res.json(profile);
   } catch (err) {
-    console.error('Error fetching provider profile:', err.message);
+    console.error(err);
     res.status(500).json({ message: 'Could not fetch provider profile' });
   }
 };
 
-// Create provider profile
+
 exports.createProviderProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { name, category, phone_number, description = null, price, location = null } = req.body;
+    const {
+      name,
+      category,
+      phone_number,
+      description = null,
+      price,
+      location = null
+    } = req.body;
+
     const imageFilename = req.file ? req.file.filename : null;
 
     const missing = [];
@@ -51,13 +143,17 @@ exports.createProviderProfile = async (req, res) => {
     if (!category) missing.push('category');
     if (!phone_number) missing.push('phone_number');
     if (!price) missing.push('price');
-    if (missing.length) return res.status(400).json({ message: `Missing: ${missing.join(', ')}` });
+    if (missing.length) {
+      return res.status(400).json({ message: `Missing: ${missing.join(', ')}` });
+    }
 
-    const { rows: existingRows } = await db.query(
+    const { rows: exists } = await db.query(
       'SELECT id FROM service_providers WHERE user_id = $1',
-      [userId]
+      [req.user.id]
     );
-    if (existingRows.length) return res.status(400).json({ message: 'Profile exists; use update' });
+    if (exists.length) {
+      return res.status(400).json({ message: 'Profile exists; use update' });
+    }
 
     let lat = null, lon = null;
     if (location) {
@@ -68,107 +164,99 @@ exports.createProviderProfile = async (req, res) => {
       }
     }
 
-    const insertQuery = `
+    const { rows } = await db.query(
+      `
       INSERT INTO service_providers
-        (user_id, name, category, phone_number, description, price, location, image, lat, lon)
+      (user_id, name, category, phone_number, description,
+       price, location, image, lat, lon)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING id
-    `;
-    const { rows } = await db.query(insertQuery, [userId, name, category, phone_number, description, price, location, imageFilename, lat, lon]);
+      `,
+      [
+        req.user.id,
+        name,
+        category,
+        phone_number,
+        description,
+        price,
+        location,
+        imageFilename,
+        lat,
+        lon
+      ]
+    );
+
     const providerId = rows[0].id;
 
-    // Auto-create default service
     await db.query(
-      'INSERT INTO services (provider_id, name, price) VALUES ($1, $2, $3)',
-      [providerId, 'General Services', 0.00]
+      'INSERT INTO services (provider_id, name, price) VALUES ($1,$2,$3)',
+      [providerId, 'General Services', 0.0]
     );
 
-    // Return new profile
-    const { rows: profileRows } = await db.query(
-      'SELECT id, name, category, phone_number, description, price, location, image, rating, lat, lon, created_at FROM service_providers WHERE id = $1',
-      [providerId]
-    );
-
-    const profile = profileRows[0];
-    if (profile.image) {
-      profile.image = `${req.protocol}://${req.get('host')}/uploads/${profile.image}`;
-    }
-
-    res.status(201).json(profile);
+    res.status(201).json({ id: providerId });
   } catch (err) {
-    console.error('Error creating provider profile:', err.message);
+    console.error(err);
     res.status(500).json({ message: 'Could not create provider profile' });
   }
 };
 
-// Update provider profile
 exports.updateProviderProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { name, category, phone_number, description, price, location } = req.body;
-    const imageFilename = req.file ? req.file.filename : undefined;
-
-    let lat, lon;
-    if (location !== undefined) {
-      const [geo] = await geocoder.geocode(location);
-      lat = geo?.latitude ?? null;
-      lon = geo?.longitude ?? null;
-    }
-
     const fields = [];
     const values = [];
-    if (name) fields.push('name=$' + (values.push(name)));
-    if (category) fields.push('category=$' + (values.push(category)));
-    if (phone_number) fields.push('phone_number=$' + (values.push(phone_number)));
-    if (description) fields.push('description=$' + (values.push(description)));
-    if (price) fields.push('price=$' + (values.push(price)));
-    if (location) fields.push('location=$' + (values.push(location)));
-    if (lat !== undefined) fields.push('lat=$' + (values.push(lat)));
-    if (lon !== undefined) fields.push('lon=$' + (values.push(lon)));
-    if (imageFilename !== undefined) fields.push('image=$' + (values.push(imageFilename)));
+    let i = 1;
 
-    if (!fields.length) return res.status(400).json({ message: 'No updatable fields provided' });
+    for (const key of ['name','category','phone_number','description','price','location']) {
+      if (req.body[key] !== undefined) {
+        fields.push(`${key}=$${i++}`);
+        values.push(req.body[key]);
+      }
+    }
 
-    values.push(userId);
-    const updateQuery = `UPDATE service_providers SET ${fields.join(', ')} WHERE user_id=$${values.length}`;
-    await db.query(updateQuery, values);
+    if (req.file) {
+      fields.push(`image=$${i++}`);
+      values.push(req.file.filename);
+    }
 
-    const { rows: profileRows } = await db.query(
-      'SELECT id, name, category, phone_number, description, price, location, image, rating, lat, lon, created_at FROM service_providers WHERE user_id=$1',
-      [userId]
+    if (!fields.length) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    values.push(req.user.id);
+
+    await db.query(
+      `UPDATE service_providers SET ${fields.join(', ')} WHERE user_id=$${i}`,
+      values
     );
 
-    const profile = profileRows[0];
-    if (profile.image) profile.image = `${req.protocol}://${req.get('host')}/uploads/${profile.image}`;
-
-    res.json(profile);
+    res.json({ message: 'Profile updated' });
   } catch (err) {
-    console.error('Error updating provider profile:', err.message);
+    console.error(err);
     res.status(500).json({ message: 'Could not update provider profile' });
   }
 };
 
-// Get providers by category
+
 exports.getProvidersByCategory = async (req, res) => {
   try {
-    const { category } = req.params;
-    const minRating = Number(req.query.minRating) || 0;
-
     const { rows } = await db.query(
-      `SELECT p.id, p.name, p.category, p.lat, p.lon,
-              COALESCE(AVG(r.rating), 0) AS rating
-       FROM service_providers p
-       LEFT JOIN reviews r ON r.provider_id = p.id
-       WHERE p.category=$1
-       GROUP BY p.id
-       HAVING COALESCE(AVG(r.rating),0) >= $2
-       ORDER BY rating DESC`,
-      [category, minRating]
+      `
+      SELECT
+        p.id, p.name, p.lat, p.lon,
+        COALESCE(AVG(r.rating),0) AS rating
+      FROM service_providers p
+      LEFT JOIN reviews r ON r.provider_id = p.id
+      WHERE p.category = $1
+      GROUP BY p.id
+      HAVING COALESCE(AVG(r.rating),0) >= $2
+      ORDER BY rating DESC
+      `,
+      [req.params.category, Number(req.query.minRating) || 0]
     );
 
     res.json(rows);
   } catch (err) {
-    console.error('Error fetching providers by category:', err.message);
-    res.status(500).json({ message: 'Server error.' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
