@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const { Pool } = require('pg');
 const mysql = require('mysql2');
 
@@ -16,11 +15,16 @@ if (isProduction) {
   console.log('Using PostgreSQL (Production)');
 
   module.exports = {
-    query: (sql, params = []) => {
-      // Convert ? to $1, $2, ...
-      let index = 1;
-      const pgSql = sql.replace(/\?/g, () => `$${index++}`);
-      return pool.query(pgSql, params);
+    query: async (sql, params = []) => {
+      try {
+        let index = 1;
+        const pgSql = sql.replace(/\?/g, () => `$${index++}`);
+        const result = await pool.query(pgSql, params);
+        return result;
+      } catch (err) {
+        console.error('PostgreSQL query error:', err);
+        throw err;
+      }
     }
   };
 
@@ -38,5 +42,15 @@ if (isProduction) {
 
   console.log('Using MySQL (Local Development)');
 
-  module.exports = pool;
+  module.exports = {
+    query: async (sql, params = []) => {
+      try {
+        const [rows] = await pool.query(sql, params);
+        return { rows };
+      } catch (err) {
+        console.error('MySQL query error:', err);
+        throw err;
+      }
+    }
+  };
 }
