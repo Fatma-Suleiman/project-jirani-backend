@@ -1,50 +1,30 @@
-require('dotenv').config({ path: './.env' });
+require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.DATABASE_URL;
+const { Pool } = require('pg');
+const mysql = require('mysql2');
+
+const isProduction = !!process.env.DATABASE_URL;
 
 let pool;
 
 if (isProduction) {
-
-  const { Pool } = require('pg');
-  
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
   });
 
   console.log('Using PostgreSQL (Production)');
 
-
-  const query = async (sql, params) => {
-    try {
-
-      let pgSql = sql;
-      let pgParams = params;
-      
-      if (params && params.length > 0) {
-        let paramIndex = 1;
-        pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
-        pgParams = params;
-      }
-      
-      const result = await pool.query(pgSql, pgParams);
-
-      return [result.rows, result.fields];
-    } catch (error) {
-      console.error('Database query error:', error);
-      throw error;
+  module.exports = {
+    query: (sql, params = []) => {
+      // Convert ? to $1, $2, ...
+      let index = 1;
+      const pgSql = sql.replace(/\?/g, () => `$${index++}`);
+      return pool.query(pgSql, params);
     }
   };
 
-  pool.query = query;
-
 } else {
-
-  const mysql = require('mysql2');
-  
   pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -57,16 +37,6 @@ if (isProduction) {
   }).promise();
 
   console.log('Using MySQL (Local Development)');
+
+  module.exports = pool;
 }
-
-
-(async () => {
-  try {
-    const [result] = await pool.query('SELECT 1 + 1 AS solution');
-    console.log('Database connected! Test query result:', result);
-  } catch (error) {
-    console.error('Database connection failed:', error.message);
-  }
-})();
-
-module.exports = pool;
