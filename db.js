@@ -7,6 +7,7 @@ const isProduction = !!process.env.DATABASE_URL;
 let pool;
 
 if (isProduction) {
+ 
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
@@ -17,18 +18,20 @@ if (isProduction) {
   module.exports = {
     query: async (sql, params = []) => {
       try {
+        // Convert '?' placeholders to '$1, $2, ...' for Postgres
         let index = 1;
         const pgSql = sql.replace(/\?/g, () => `$${index++}`);
         const result = await pool.query(pgSql, params);
-        return result;
+        return { rows: result.rows };
       } catch (err) {
-        console.error('PostgreSQL query error:', err);
+        console.error('PostgreSQL query error:', err.message);
         throw err;
       }
     }
   };
 
 } else {
+ 
   pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -46,9 +49,9 @@ if (isProduction) {
     query: async (sql, params = []) => {
       try {
         const [rows] = await pool.query(sql, params);
-        return { rows };
+        return { rows }; 
       } catch (err) {
-        console.error('MySQL query error:', err);
+        console.error('MySQL query error:', err.message);
         throw err;
       }
     }
