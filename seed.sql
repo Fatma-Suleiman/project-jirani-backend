@@ -127,6 +127,80 @@ Records: 6  Duplicates: 0  Warnings: 0
 
 mysql>
 
+-- Togo with postgresql
+-- CREATE TABLE users (
+--   id SERIAL PRIMARY KEY,
+--   username VARCHAR(50) NOT NULL,
+--   email VARCHAR(100) UNIQUE NOT NULL,
+--   password VARCHAR(255) NOT NULL,
+--   phone_number VARCHAR(20) NOT NULL,
+--   token TEXT,
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+
+-- CREATE TABLE service_providers (
+--   id SERIAL PRIMARY KEY,
+--   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+--   category VARCHAR(50) NOT NULL,
+--   name VARCHAR(100) NOT NULL,
+--   phone_number VARCHAR(20) NOT NULL,
+--   description TEXT,
+--   image VARCHAR(255),
+--   price VARCHAR(50) NOT NULL,
+--   location VARCHAR(255),
+--   rating NUMERIC(2,1),
+--   lat NUMERIC(9,6),
+--   lon NUMERIC(9,6),
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+
+-- CREATE TABLE services (
+--   id SERIAL PRIMARY KEY,
+--   provider_id INTEGER NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+--   name VARCHAR(100) NOT NULL,
+--   price NUMERIC(10,2) DEFAULT 0,
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+
+-- CREATE TABLE bookings (
+--   id SERIAL PRIMARY KEY,
+--   service_id INTEGER NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+--   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   user_name VARCHAR(50) NOT NULL,
+--   user_contact VARCHAR(50) NOT NULL,
+--   booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--   status VARCHAR(20) DEFAULT 'pending'
+-- );
+
+
+
+-- CREATE TABLE service_requests (
+--   id SERIAL PRIMARY KEY,
+--   booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+--   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   provider_id INTEGER NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+--   details TEXT,
+--   status VARCHAR(20) DEFAULT 'pending',
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+
+-- CREATE TABLE reviews (
+--   id SERIAL PRIMARY KEY,
+--   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   request_id INTEGER NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
+--   provider_id INTEGER NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+--   review TEXT NOT NULL,
+--   rating INTEGER NOT NULL,
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+
+
+
 /*
 SHOW DATABASES;
 USE my_jirani;
