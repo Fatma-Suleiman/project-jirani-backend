@@ -136,17 +136,20 @@ exports.createProviderProfile = async (req, res) => {
       location = null
     } = req.body;
 
+    // Multer file
     const imageFilename = req.file ? req.file.filename : null;
 
+    // Required fields check
     const missing = [];
     if (!name) missing.push('name');
     if (!category) missing.push('category');
     if (!phone_number) missing.push('phone_number');
     if (!price) missing.push('price');
     if (missing.length) {
-      return res.status(400).json({ message: `Missing: ${missing.join(', ')}` });
+      return res.status(400).json({ message: `Missing required: ${missing.join(', ')}` });
     }
 
+    // Check if user already has a provider profile
     const { rows: exists } = await db.query(
       'SELECT id FROM service_providers WHERE user_id = $1',
       [req.user.id]
@@ -155,50 +158,41 @@ exports.createProviderProfile = async (req, res) => {
       return res.status(400).json({ message: 'Profile exists; use update' });
     }
 
+    // Optional geocoding
     let lat = null, lon = null;
     if (location) {
-      const [geo] = await geocoder.geocode(location);
-      if (geo) {
-        lat = geo.latitude;
-        lon = geo.longitude;
+      try {
+        const [geo] = await geocoder.geocode(location);
+        if (geo) {
+          lat = geo.latitude;
+          lon = geo.longitude;
+        }
+      } catch (err) {
+        console.warn('Geocoding failed:', err.message);
       }
     }
 
+    // Insert provider
     const { rows } = await db.query(
       `
       INSERT INTO service_providers
       (user_id, name, category, phone_number, description,
        price, location, image, lat, lon)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      RETURNING id
+      RETURNING id, name, category
       `,
-      [
-        req.user.id,
-        name,
-        category,
-        phone_number,
-        description,
-        price,
-        location,
-        imageFilename,
-        lat,
-        lon
-      ]
+      [req.user.id, name, category, phone_number, description, price, location, imageFilename, lat, lon]
     );
 
     const providerId = rows[0].id;
 
-    await db.query(
-      'INSERT INTO services (provider_id, name, price) VALUES ($1,$2,$3)',
-      [providerId, 'General Services', 0.0]
-    );
-
-    res.status(201).json({ id: providerId });
+    res.status(201).json({ message: 'Provider profile created', id: providerId });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Could not create provider profile' });
+    console.error('Create provider profile error:', err);
+    res.status(500).json({ message: 'Could not create provider profile', error: err.message });
   }
 };
+
 
 exports.updateProviderProfile = async (req, res) => {
   try {
@@ -235,6 +229,8 @@ exports.updateProviderProfile = async (req, res) => {
     res.status(500).json({ message: 'Could not update provider profile' });
   }
 };
+
+
 
 
 exports.getProvidersByCategory = async (req, res) => {
