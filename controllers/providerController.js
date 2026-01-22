@@ -100,26 +100,40 @@ exports.getMyProfile = async (req, res) => {
   try {
     const { rows } = await db.query(
       `
-      SELECT id, name, category, phone_number, description, price,
-             location, image, rating, lat, lon, created_at
-      FROM service_providers
-      WHERE user_id = $1
+      SELECT
+        sp.id,
+        sp.name,
+        sp.category,
+        sp.phone_number,
+        sp.description,
+        sp.price,
+        sp.location,
+        sp.image,
+        sp.rating,
+        sp.lat,
+        sp.lon,
+        sp.created_at
+      FROM service_providers sp
+      WHERE sp.user_id = $1
       `,
       [req.user.id]
     );
 
     if (!rows.length) {
-      return res.status(404).json({ message: 'Provider profile not found' });
+      return res.status(404).json({
+        message: 'Provider profile not found. Please create your profile first.'
+      });
     }
 
     const profile = rows[0];
+
     if (profile.image) {
       profile.image = `${req.protocol}://${req.get('host')}/uploads/${profile.image}`;
     }
 
     res.json(profile);
   } catch (err) {
-    console.error(err);
+    console.error('Get provider profile error:', err);
     res.status(500).json({ message: 'Could not fetch provider profile' });
   }
 };
