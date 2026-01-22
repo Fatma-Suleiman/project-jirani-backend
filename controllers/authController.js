@@ -73,32 +73,36 @@ exports.login = async (req, res) => {
   }
 };
 
+
 exports.getProfile = async (req, res) => {
   try {
+    // Make sure the user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Fetch user info only
     const { rows: userRows } = await db.query(
-      "SELECT id, username, email, phone_number FROM users WHERE id = $1",
+      `SELECT id, username, email, phone_number
+       FROM users
+       WHERE id = $1`,
       [req.user.id]
     );
+
     if (!userRows.length) return res.status(404).json({ message: "User not found" });
+
     const user = userRows[0];
 
-    const { rows: bookings } = await db.query(
-      `SELECT b.id, sp.category AS service_name, sp.name AS provider_name,
-              DATE(b.booking_date) AS date, TIME(b.booking_date) AS time,
-              b.status, b.user_contact
-       FROM bookings b
-       JOIN service_providers sp ON b.service_id = sp.id
-       WHERE b.user_id = $1
-       ORDER BY b.booking_date DESC`,
-      [req.user.id]
-    );
-
-    res.status(200).json({ user, bookings: bookings || [] });
+    // Return only user info — bookings will be fetched separately
+    res.status(200).json({ user });
   } catch (err) {
     console.error("Profile Error:", err);
-    res.status(500).json({ message: "Error fetching profile" });
+    res.status(500).json({ message: "Error fetching profile", error: err.message });
   }
 };
+
+
+
 
 exports.updateProfile = async (req, res) => {
   const { username, email, phone_number } = req.body;

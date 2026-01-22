@@ -198,6 +198,40 @@ mysql>
 --   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );
 
+-- INSERT INTO service_providers
+-- (user_id, category, name, phone_number, description, image, price, location, rating, lat, lon)
+-- VALUES
+-- (NULL,'daycare','Little Angels Daycare','+254700111111','Safe and nurturing environment','/images/daycare1.jpg','Starting from KES 300/day','Kibera',4.7,-1.295500,36.826500),
+-- (NULL,'daycare','Happy Tots','+254700222222','Loving daycare for toddlers','/images/daycare2.jpg','Starting from KES 250/day','Westlands',4.5,-1.299500,36.827500),
+-- (NULL,'daycare','Mama Njeri’s Daycare','+254700333333','Affordable daycare','/images/daycare3.jpg','Starting from KES 280/day','Dagoretti',4.6,-1.298500,36.825000);
+
+-- SELECT 
+--     b.id, 
+--     sp.category AS service_name, 
+--     sp.name AS provider_name,
+--     DATE(b.booking_date) AS date, 
+--     b.booking_date::time AS time,
+--     b.status, 
+--     b.user_contact
+-- FROM bookings AS b
+-- JOIN service_providers AS sp 
+--   ON b.service_id = sp.id
+-- ORDER BY b.booking_date DESC
+-- LIMIT 10;
+
+-- SELECT 
+--     b.id, 
+--     sp.category AS service_name, 
+--     sp.name AS provider_name,
+--     DATE(b.booking_date) AS date,
+--     b.booking_date::time AS time,
+--     b.status, 
+--     b.user_contact
+-- FROM bookings AS b
+-- JOIN service_providers AS sp 
+--   ON b.service_id = sp.id
+-- WHERE b.user_id = $1
+-- ORDER BY b.booking_date DESC;
 
 
 
