@@ -249,24 +249,35 @@ exports.updateProviderProfile = async (req, res) => {
 
 exports.getProvidersByCategory = async (req, res) => {
   try {
+    const minRating = Number(req.query.minRating) || 0;
+
     const { rows } = await db.query(
       `
       SELECT
-        p.id, p.name, p.lat, p.lon,
-        COALESCE(AVG(r.rating),0) AS rating
+        p.id,
+        p.name,
+        p.category,
+        p.price,
+        p.location,
+        p.lat,
+        p.lon,
+        p.image,
+        COALESCE(AVG(r.rating), 0) AS rating
       FROM service_providers p
       LEFT JOIN reviews r ON r.provider_id = p.id
       WHERE p.category = $1
+        AND p.lat IS NOT NULL
+        AND p.lon IS NOT NULL
       GROUP BY p.id
-      HAVING COALESCE(AVG(r.rating),0) >= $2
+      HAVING COALESCE(AVG(r.rating), 0) >= $2
       ORDER BY rating DESC
       `,
-      [req.params.category, Number(req.query.minRating) || 0]
+      [req.params.category, minRating]
     );
 
-    res.json(rows);
+    res.json({ providers: rows });
   } catch (err) {
-    console.error(err);
+    console.error('Get providers by category error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
