@@ -172,19 +172,40 @@ exports.createProviderProfile = async (req, res) => {
       return res.status(400).json({ message: 'Profile exists; use update' });
     }
 
-    // Optional geocoding
-    let lat = null, lon = null;
-    if (location) {
-      try {
-        const [geo] = await geocoder.geocode(location);
-        if (geo) {
-          lat = geo.latitude;
-          lon = geo.longitude;
-        }
-      } catch (err) {
-        console.warn('Geocoding failed:', err.message);
-      }
-    }
+ 
+if (!location) {
+  return res.status(400).json({
+    message: 'Location is required (e.g. "Zimmerman, Nairobi")'
+  });
+}
+
+let lat, lon;
+
+try {
+  const searchLocation = `${location}, Nairobi, Kenya`;
+  const results = await geocoder.geocode(searchLocation);
+
+  if (!results || !results.length) {
+    return res.status(400).json({
+      message: `Could not locate "${location}". Please enter a clearer area name (e.g. "Zimmerman, Nairobi").`
+    });
+  }
+
+  lat = results[0].latitude;
+  lon = results[0].longitude;
+
+  if (!lat || !lon) {
+    return res.status(400).json({
+      message: 'Invalid coordinates returned. Please refine your location.'
+    });
+  }
+} catch (err) {
+  console.error('Geocoding error:', err.message);
+  return res.status(500).json({
+    message: 'Location lookup failed. Please try again later.'
+  });
+}
+
 
     // Insert provider
     const { rows } = await db.query(
