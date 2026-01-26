@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../controllers/authController');
 const { getProvidersByCategory } = require('../controllers/providerController');
-const upload = require('../middlewares/uploadMiddleware');
+const { upload } = require('../middlewares/uploadMiddleware');
 
 const {
   getMyProfile,
