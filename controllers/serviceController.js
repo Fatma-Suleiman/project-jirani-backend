@@ -50,7 +50,9 @@ exports.getAllServices = async (req, res) => {
         if (s.image.startsWith('/images/') || s.image.startsWith('http')) {
           imageUrl = s.image; // Seeded data
         } else {
-          imageUrl = `${req.protocol}://${req.get('host')}/uploads/${s.image}`; // Uploaded
+          // Uploaded file - FORCE HTTPS
+          const host = req.get('host');
+          imageUrl = `https://${host}/uploads/${s.image}`;
         }
       }
 
@@ -116,7 +118,9 @@ exports.getServiceById = async (req, res) => {
       if (prov.image.startsWith('/images/') || prov.image.startsWith('http')) {
         imageUrl = prov.image; // Seeded data
       } else {
-        imageUrl = `${req.protocol}://${req.get('host')}/uploads/${prov.image}`; // Uploaded
+        // Uploaded file - FORCE HTTPS
+        const host = req.get('host');
+        imageUrl = `https://${host}/uploads/${prov.image}`;
       }
     }
 

@@ -132,16 +132,14 @@ exports.getMyProfile = async (req, res) => {
 
     const profile = rows[0];
 
-    // Format image URL properly
     if (profile.image) {
       if (profile.image.startsWith('/images/') || profile.image.startsWith('http')) {
-        // Already has full path (seeded data) - keep as is
+      
         profile.image = profile.image;
       } else {
-        // Uploaded file - add full URL
+       
         const host = req.get('host');
-        const protocol = req.protocol;
-        profile.image = `${protocol}://${host}/uploads/${profile.image}`;
+        profile.image = `https://${host}/uploads/${profile.image}`;
       }
     }
 
@@ -151,7 +149,6 @@ exports.getMyProfile = async (req, res) => {
     res.status(500).json({ message: 'Could not fetch provider profile' });
   }
 };
-
 
 exports.createProviderProfile = async (req, res) => {
   try {
