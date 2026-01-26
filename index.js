@@ -1,10 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
 const path = require('path');
-const db = require('./db');
 const fs = require('fs');
+const db = require('./db');
 
 const reviewRoutes = require('./routes/reviewRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -17,25 +16,35 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 
-app.use(cors({
-  origin: true,      // allow all origins
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: true, 
+    credentials: true,
+  })
+);
 
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const uploadsDir = path.join(__dirname, 'uploads');
+const imagesDir = path.join(__dirname, 'images');
 
-app.use('/images', express.static(path.join(__dirname, 'images')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+
+app.use('/uploads', express.static(uploadsDir));
+app.use('/images', express.static(imagesDir));
 
 
 app.get('/test-db', async (req, res) => {
   try {
     const { rows } = await db.query('SELECT 1 + 1 AS solution');
-    res.json({ message: 'Database connected', solution: rows[0].solution });
+    res.json({
+      message: 'Database connected',
+      solution: rows[0].solution,
+    });
   } catch (error) {
     console.error('Database connection error:', error.message);
     res.status(500).json({ message: 'Database connection failed' });
@@ -52,7 +61,7 @@ app.use('/api/service-requests', serviceRequestsRoutes);
 
 
 app.get('/', (req, res) => {
-  res.send('Welcome to the JiraniConnect Backend!');
+  res.send('Welcome to the JiraniConnect Backend ');
 });
 
 
@@ -62,5 +71,5 @@ app.use((req, res) => {
 
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(` Server running on port ${port}`);
 });
