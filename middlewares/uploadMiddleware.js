@@ -4,9 +4,10 @@ const fs = require('fs');
 
 const isProd = process.env.NODE_ENV === 'production';
 
+
 if (isProd) {
   const cloudinary = require('cloudinary').v2;
-  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const CloudinaryStorage = require('multer-storage-cloudinary');
 
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -25,7 +26,7 @@ if (isProd) {
 
   module.exports = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       if (!file.mimetype.startsWith('image/')) {
         return cb(new Error('Only image files are allowed'));
@@ -37,7 +38,6 @@ if (isProd) {
 
 } else {
   const uploadDir = path.join(__dirname, '../uploads');
-
 
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -55,7 +55,7 @@ if (isProd) {
 
   module.exports = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       if (!file.mimetype.startsWith('image/')) {
         return cb(new Error('Only image files are allowed'));
