@@ -4,10 +4,9 @@ const fs = require('fs');
 
 const isProd = process.env.NODE_ENV === 'production';
 
-
 if (isProd) {
   const cloudinary = require('cloudinary').v2;
-  const CloudinaryStorage = require('multer-storage-cloudinary');
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -20,7 +19,7 @@ if (isProd) {
     params: {
       folder: 'jirani/providers',
       allowed_formats: ['jpg', 'jpeg', 'png'],
-      public_id: () => `${Date.now()}`
+      public_id: (req, file) => `${Date.now()}`
     }
   });
 
@@ -35,7 +34,6 @@ if (isProd) {
     }
   });
 
-
 } else {
   const uploadDir = path.join(__dirname, '../uploads');
 
@@ -44,22 +42,15 @@ if (isProd) {
   }
 
   const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      cb(null, `${Date.now()}${ext}`);
-    }
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`)
   });
 
   module.exports = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Only image files are allowed'));
-      }
+      if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are allowed'));
       cb(null, true);
     }
   });
