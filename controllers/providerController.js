@@ -132,8 +132,17 @@ exports.getMyProfile = async (req, res) => {
 
     const profile = rows[0];
 
+    // Format image URL properly
     if (profile.image) {
-      profile.image = `${req.protocol}://${req.get('host')}/uploads/${profile.image}`;
+      if (profile.image.startsWith('/images/') || profile.image.startsWith('http')) {
+        // Already has full path (seeded data) - keep as is
+        profile.image = profile.image;
+      } else {
+        // Uploaded file - add full URL
+        const host = req.get('host');
+        const protocol = req.protocol;
+        profile.image = `${protocol}://${host}/uploads/${profile.image}`;
+      }
     }
 
     res.json(profile);
@@ -183,7 +192,7 @@ exports.createProviderProfile = async (req, res) => {
     let lat, lon;
 
     try {
-     
+
       const cleanLocation = location.trim();
       const searchLocation = cleanLocation.toLowerCase().includes('nairobi') 
         ? `${cleanLocation}, Kenya`
@@ -219,7 +228,6 @@ exports.createProviderProfile = async (req, res) => {
       });
     }
 
-    // Insert provider
     const { rows } = await db.query(
       `
       INSERT INTO service_providers

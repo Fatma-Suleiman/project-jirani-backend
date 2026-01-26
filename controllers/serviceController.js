@@ -1,6 +1,5 @@
 const db = require('../db');
 
-
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const toRad = v => (v * Math.PI) / 180;
   const R = 6371; // km
@@ -17,7 +16,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-
 exports.getCategories = async (req, res) => {
   try {
     const result = await db.query(
@@ -30,7 +28,6 @@ exports.getCategories = async (req, res) => {
     res.status(500).json({ message: 'Error fetching categories' });
   }
 };
-
 
 exports.getAllServices = async (req, res) => {
   const { category, lat, long, radius } = req.query;
@@ -47,24 +44,30 @@ exports.getAllServices = async (req, res) => {
     const result = await db.query(sql, params);
     const services = result.rows;
 
-    const formattedServices = services.map(s => ({
-      id: s.id,
-      name: s.name,
-      description: s.description || '',
-      price: s.price,
-      rating: s.rating !== null ? Number(s.rating) : 0,
-      phone_number: s.phone_number,
-      image: s.image
-        ? s.image.startsWith('/images/')
-          ? s.image
-          : `/uploads/${s.image}`
-        : null,
-      location: s.location,
-      lat: s.lat,
-      lon: s.lon
-    }));
+    const formattedServices = services.map(s => {
+      let imageUrl = null;
+      if (s.image) {
+        if (s.image.startsWith('/images/') || s.image.startsWith('http')) {
+          imageUrl = s.image; // Seeded data
+        } else {
+          imageUrl = `${req.protocol}://${req.get('host')}/uploads/${s.image}`; // Uploaded
+        }
+      }
 
-  
+      return {
+        id: s.id,
+        name: s.name,
+        description: s.description || '',
+        price: s.price,
+        rating: s.rating !== null ? Number(s.rating) : 0,
+        phone_number: s.phone_number,
+        image: imageUrl,
+        location: s.location,
+        lat: s.lat,
+        lon: s.lon
+      };
+    });
+
     if (lat && long) {
       const uLat = parseFloat(lat);
       const uLon = parseFloat(long);
@@ -93,7 +96,6 @@ exports.getAllServices = async (req, res) => {
   }
 };
 
-
 exports.getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -109,6 +111,15 @@ exports.getServiceById = async (req, res) => {
 
     const prov = result.rows[0];
 
+    let imageUrl = null;
+    if (prov.image) {
+      if (prov.image.startsWith('/images/') || prov.image.startsWith('http')) {
+        imageUrl = prov.image; // Seeded data
+      } else {
+        imageUrl = `${req.protocol}://${req.get('host')}/uploads/${prov.image}`; // Uploaded
+      }
+    }
+
     res.json({
       id: prov.id,
       name: prov.name,
@@ -116,11 +127,7 @@ exports.getServiceById = async (req, res) => {
       price: prov.price,
       rating: prov.rating !== null ? Number(prov.rating) : 0,
       phone_number: prov.phone_number,
-      image: prov.image
-        ? prov.image.startsWith('/images/')
-          ? prov.image
-          : `/uploads/${prov.image}`
-        : null,
+      image: imageUrl,
       location: prov.location,
       lat: prov.lat,
       lon: prov.lon
