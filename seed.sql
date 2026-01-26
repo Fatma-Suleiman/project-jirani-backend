@@ -243,6 +243,7 @@ SELECT * FROM users;
 SELECT * FROM service_providers;
 SELECT * FROM bookings; -----users that have booked
 SHOW COLUMNS FROM bookings; ----the date, time, booking history
+DELETE FROM service_providers WHERE id = 61;
 
 */
 

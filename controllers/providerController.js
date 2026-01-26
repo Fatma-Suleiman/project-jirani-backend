@@ -150,7 +150,6 @@ exports.createProviderProfile = async (req, res) => {
       location = null
     } = req.body;
 
-    // Multer file
     const imageFilename = req.file ? req.file.filename : null;
 
     // Required fields check
@@ -159,8 +158,12 @@ exports.createProviderProfile = async (req, res) => {
     if (!category) missing.push('category');
     if (!phone_number) missing.push('phone_number');
     if (!price) missing.push('price');
+    if (!location) missing.push('location'); // Make location required
+    
     if (missing.length) {
-      return res.status(400).json({ message: `Missing required: ${missing.join(', ')}` });
+      return res.status(400).json({ 
+        message: `Missing required fields: ${missing.join(', ')}` 
+      });
     }
 
     // Check if user already has a provider profile
@@ -172,62 +175,95 @@ exports.createProviderProfile = async (req, res) => {
       return res.status(400).json({ message: 'Profile exists; use update' });
     }
 
- 
-if (!location) {
-  return res.status(400).json({
-    message: 'Location is required (e.g. "Zimmerman, Nairobi")'
-  });
-}
+    // Geocode the location
+    let lat = null;
+    let lon = null;
 
-let lat, lon;
+    try {
+      const searchLocation = `${location}, Nairobi, Kenya`;
+      console.log('Geocoding location:', searchLocation);
+      
+      const results = await geocoder.geocode(searchLocation);
+      console.log('Geocoding results:', results);
 
-try {
-  const searchLocation = `${location}, Nairobi, Kenya`;
-  const results = await geocoder.geocode(searchLocation);
+      if (!results || !results.length) {
+        return res.status(400).json({
+          message: `Could not locate "${location}". Please enter a clearer area name (e.g. "Zimmerman", "Westlands", "Kilimani").`
+        });
+      }
 
-  if (!results || !results.length) {
-    return res.status(400).json({
-      message: `Could not locate "${location}". Please enter a clearer area name (e.g. "Zimmerman, Nairobi").`
-    });
-  }
+      lat = results[0].latitude;
+      lon = results[0].longitude;
 
-  lat = results[0].latitude;
-  lon = results[0].longitude;
+      // Validate coordinates
+      if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+        console.error('Invalid coordinates returned:', { lat, lon });
+        return res.status(400).json({
+          message: 'Invalid coordinates returned. Please try a different location name.'
+        });
+      }
 
-  if (!lat || !lon) {
-    return res.status(400).json({
-      message: 'Invalid coordinates returned. Please refine your location.'
-    });
-  }
-} catch (err) {
-  console.error('Geocoding error:', err.message);
-  return res.status(500).json({
-    message: 'Location lookup failed. Please try again later.'
-  });
-}
+      console.log('Geocoded coordinates:', { lat, lon });
 
+    } catch (geocodeErr) {
+      console.error('Geocoding error:', geocodeErr);
+      return res.status(500).json({
+        message: 'Location lookup failed. Please try again or use a more specific location (e.g. "Westlands, Nairobi").'
+      });
+    }
 
-    // Insert provider
+    // Insert provider -  lat/lon  included
     const { rows } = await db.query(
       `
       INSERT INTO service_providers
       (user_id, name, category, phone_number, description,
        price, location, image, lat, lon)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      RETURNING id, name, category
+      RETURNING id, name, category, lat, lon
       `,
-      [req.user.id, name, category, phone_number, description, price, location, imageFilename, lat, lon]
+      [
+        req.user.id, 
+        name, 
+        category, 
+        phone_number, 
+        description, 
+        price, 
+        location, 
+        imageFilename, 
+        lat, 
+        lon
+      ]
     );
 
-    const providerId = rows[0].id;
+    const newProvider = rows[0];
+    
+    // Verify coordinates were saved
+    if (!newProvider.lat || !newProvider.lon) {
+      console.error('Coordinates not saved to database:', newProvider);
+      return res.status(500).json({
+        message: 'Failed to save location coordinates. Please try again.'
+      });
+    }
 
-    res.status(201).json({ message: 'Provider profile created', id: providerId });
+    console.log('Provider created successfully:', newProvider);
+
+    res.status(201).json({ 
+      message: 'Provider profile created successfully', 
+      id: newProvider.id,
+      location: {
+        lat: newProvider.lat,
+        lon: newProvider.lon
+      }
+    });
+
   } catch (err) {
     console.error('Create provider profile error:', err);
-    res.status(500).json({ message: 'Could not create provider profile', error: err.message });
+    res.status(500).json({ 
+      message: 'Could not create provider profile', 
+      error: err.message 
+    });
   }
 };
-
 
 exports.updateProviderProfile = async (req, res) => {
   try {
