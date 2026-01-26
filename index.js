@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const db = require('./db');
+const fs = require('fs');
 
 const reviewRoutes = require('./routes/reviewRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -15,35 +16,21 @@ const serviceRequestsRoutes = require('./routes/serviceRequests');
 const app = express();
 const port = process.env.PORT || 5000;
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://serviceprovision-jirani.vercel.app'
-];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true,      // allow all origins
   credentials: true
 }));
 
 app.use(bodyParser.json());
 
-const fs = require('fs');
 
 const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 app.get('/test-db', async (req, res) => {
   try {
@@ -55,6 +42,7 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
+
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
@@ -62,13 +50,16 @@ app.use('/api/bookings', bookingsRoutes);
 app.use('/api/providers', providersRoutes);
 app.use('/api/service-requests', serviceRequestsRoutes);
 
+
 app.get('/', (req, res) => {
   res.send('Welcome to the JiraniConnect Backend!');
 });
 
+
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
+
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
